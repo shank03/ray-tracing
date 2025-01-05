@@ -4,7 +4,7 @@
 #include "ray.h"
 #include "vec3.h"
 
-bool hit_sphere(const point3 &center, double radius, const ray &r) {
+double hit_sphere(const point3 &center, double radius, const ray &r) {
     // Sphere on arbitary point (Cx, Cy, Cz) => (Cx - x)^2 + (Cy - y)^2 + (Cz - z)^2 = r^2;
     // => vec from point P to center C => (C - P)
     vec3 oc = center - r.origin();
@@ -26,12 +26,17 @@ bool hit_sphere(const point3 &center, double radius, const ray &r) {
     // (C - Q) * (C - Q) - r^2
     auto c            = dot(oc, oc) - radius * radius;
     auto discriminant = b * b - 4 * a * c;
-    return discriminant >= 0;
+
+    // get the discriminant if some
+    return (discriminant < 0) ? -1.0 : (-b - std::sqrt(discriminant)) / (2.0 * a);
 }
 
 color ray_color(const ray &r) {
-    if (hit_sphere(point3(0, 0, -1), 0.5, r)) {
-        return color(1, 0, 0);
+    auto t = hit_sphere(point3(0, 0, -1), 0.5, r);
+    if (t > 0.0) {
+        // we needed hit point on sphere for normal (coords b/w 0 and 1)
+        vec3 normal = unit_vector(r.at(t) - vec3(0, 0, -1));
+        return 0.5 * color(normal.x() + 1, normal.y() + 1, normal.z() + 1);
     }
 
     vec3 unit_dir = unit_vector(r.direction());
@@ -41,7 +46,7 @@ color ray_color(const ray &r) {
 
 int main() {
     auto aspect_ratio = 16.0 / 9.0;
-    int  image_width  = 400;
+    int  image_width  = 1920;
 
     // make sure image height is at least 1
     int image_height = int(image_width / aspect_ratio);
