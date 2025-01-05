@@ -4,7 +4,36 @@
 #include "ray.h"
 #include "vec3.h"
 
+bool hit_sphere(const point3 &center, double radius, const ray &r) {
+    // Sphere on arbitary point (Cx, Cy, Cz) => (Cx - x)^2 + (Cy - y)^2 + (Cz - z)^2 = r^2;
+    // => vec from point P to center C => (C - P)
+    vec3 oc = center - r.origin();
+
+    // => (C - P) * (C - P) = r^2;
+    // => at time `t`, P => P(t) => Q + td
+    // => (C - (Q + td)) * (C - (Q + td)) = r^2;
+    // => (-td + (C-Q)) * (-td + (C-Q)) - r^2 = 0;
+    // => (t^2.d * d * 2td) * (C-Q)+(C-Q) * (C-Q) - r^2 = 0;
+    //
+    // on mapping this equation to quadratic discriminant formula
+    // we get,
+    // a = d * d;
+    auto a = dot(r.direction(), r.direction());
+
+    // -2d * (C - Q)
+    auto b = -2.0 * dot(r.direction(), oc);
+
+    // (C - Q) * (C - Q) - r^2
+    auto c            = dot(oc, oc) - radius * radius;
+    auto discriminant = b * b - 4 * a * c;
+    return discriminant >= 0;
+}
+
 color ray_color(const ray &r) {
+    if (hit_sphere(point3(0, 0, -1), 0.5, r)) {
+        return color(1, 0, 0);
+    }
+
     vec3 unit_dir = unit_vector(r.direction());
     auto a        = 0.5 * (unit_dir.y() + 1.0);
     return (1.0 - a) * color(1.0, 1.0, 1.0) + a * color(0.5, 0.7, 1.0);

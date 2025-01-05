@@ -12,11 +12,11 @@ public:
 
     const vec3& direction() const { return dir; }
 
-    /// `P(t) = A + tb`
+    /// `P(t) = Q + td`
     ///
     /// `P` = 3D position
-    /// `A` = ray origin coordinates
-    /// `b` = ray direction vector
+    /// `Q` = ray origin coordinates
+    /// `d` = ray direction vector
     /// `t` = unit time
     ///
     /// returns position on the ray at time `t`
