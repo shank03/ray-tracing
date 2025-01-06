@@ -1,6 +1,8 @@
 #pragma once
 
-#include "_util.h"
+#include "interval.h"
+#include "ray.h"
+#include "vec3.h"
 
 typedef struct hr {
     point3 p;

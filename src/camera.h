@@ -1,7 +1,9 @@
 #pragma once
 
-#include "_util.h"
+#include "color.h"
 #include "hittable.h"
+#include "interval.h"
+#include "ray.h"
 #include "vec3.h"
 
 class camera {
@@ -81,7 +83,8 @@ private:
     color ray_color(const ray &r, const hittable &world) const {
         hit_record rec;
         if (world.hit(r, interval(0, infinity), rec)) {
-            return 0.5 * (rec.normal + color(1, 1, 1));
+            vec3 dir = random_on_hemisphere(rec.normal);
+            return 0.5 * ray_color(ray(rec.p, dir), world);
         }
 
         vec3 unit_dir = unit_vector(r.direction());
