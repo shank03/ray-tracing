@@ -1,5 +1,6 @@
 #pragma once
 
+#include "_util.h"
 #include "color.h"
 #include "hittable.h"
 #include "vec3.h"
@@ -58,15 +59,30 @@ public:
 
     bool scatter(const ray &r_in, const hit_record &rec, color &attenuation, ray &scattered) const override {
         attenuation = color(1.0, 1.0, 1.0);
-        double ri = rec.front_face ? (1.0/refraction_index) : refraction_index;
+        double ri   = rec.front_face ? (1.0 / refraction_index) : refraction_index;
 
-        vec3 unit_dir = unit_vector(r_in.direction());
-        vec3 refracted = refract(unit_dir, rec.normal, ri);
+        vec3   unit_dir = unit_vector(r_in.direction());
+        double cos      = std::fmin(dot(-unit_dir, rec.normal), 1.0);
+        double sin      = std::sqrt(1.0 - cos * cos);
 
-        scattered = ray(rec.p, refracted);
+        bool cannot_refract = ri * sin > 1.0;
+        vec3 dir;
+        if (cannot_refract || reflectance(cos, ri) > random_double()) {
+            dir = reflect(unit_dir, rec.normal);
+        } else {
+            dir = refract(unit_dir, rec.normal, ri);
+        }
+
+        scattered = ray(rec.p, dir);
         return true;
     }
 
 private:
     double refraction_index;
+
+    static double reflectance(double cos, double ri) {
+        auto r0 = (1 - ri) / (1 + ri);
+        r0      = r0 * r0;
+        return r0 + (1 - r0) * std::pow((1 - cos), 5);
+    }
 };

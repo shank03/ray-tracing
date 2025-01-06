@@ -1,5 +1,6 @@
 #pragma once
 
+#include "_util.h"
 #include "color.h"
 #include "hittable.h"
 #include "interval.h"
@@ -13,6 +14,14 @@ public:
     int    image_width  = 1920;
     int    samples_pp   = 10;
     int    max_depth    = 10;
+
+    double vfov      = 90;
+    point3 near_clip = point3(0, 0, 0);
+    point3 far_clip  = point3(0, 0, -1);
+    vec3   vup       = vec3(0, 1, 0);
+
+    double defocus_angle = 0;
+    double focus_dist    = 10;
 
     void render(const hittable &world) {
         init();
@@ -41,6 +50,8 @@ private:
     double pixel_sample_scale;
     point3 camera_center, pixel00_loc;
     vec3   pixel_del_u, pixel_del_v;
+    vec3   u, v, w;
+    vec3   defocus_disk_u, defocus_disk_v;
 
     void init() {
         image_height = int(image_width / aspect_ratio);
@@ -49,30 +60,39 @@ private:
         pixel_sample_scale = 1.0 / samples_pp;
 
         // Camera
-        auto focal_length = 1.0;
-        camera_center     = point3(0, 0, 0);
+        camera_center = near_clip;
+        auto theta    = degress_to_radians(vfov);
+        auto h        = std::tan(theta / 2);
 
         // Viewport width is fine being less than 1
-        auto viewport_height = 2.0;
+        auto viewport_height = 2 * h * focus_dist;
         auto viewport_width  = viewport_height * (double(image_width) / image_height);
 
+        w = unit_vector(near_clip - far_clip);
+        u = unit_vector(cross(vup, w));
+        v = cross(w, u);
+
         // horizontal and vertical vectors, where top left = (u,v)=(0,0)
-        auto viewport_u = vec3(viewport_width, 0, 0);
-        auto viewport_v = vec3(0, -viewport_height, 0);
+        auto viewport_u = viewport_width * u;
+        auto viewport_v = viewport_height * -v;
 
         // viewport to image delta
         pixel_del_u = viewport_u / image_width;
         pixel_del_v = viewport_v / image_height;
 
-        auto viewport_top_left = camera_center - vec3(0, 0, focal_length) - viewport_u / 2 - viewport_v / 2;
+        auto viewport_top_left = camera_center - (focus_dist * w) - viewport_u / 2 - viewport_v / 2;
         pixel00_loc            = viewport_top_left + 0.5 * (pixel_del_u + pixel_del_v);
+
+        auto defocus_radius = focus_dist * std::tan(degress_to_radians(defocus_angle / 2));
+        defocus_disk_u      = u * defocus_radius;
+        defocus_disk_v      = v * defocus_radius;
     }
 
     ray get_ray(int i, int j) const {
         auto offset       = sample_square();
         auto pixel_sample = pixel00_loc + ((i + offset.x()) * pixel_del_u) + ((j + offset.y()) * pixel_del_v);
 
-        auto origin = camera_center;
+        auto origin = (defocus_angle <= 0) ? camera_center : defocus_disk_sample();
         auto dir    = pixel_sample - origin;
 
         return ray(origin, dir);
@@ -80,6 +100,11 @@ private:
 
     vec3 sample_square() const {
         return vec3(random_double() - 0.5, random_double() - 0.5, 0);
+    }
+
+    point3 defocus_disk_sample() const {
+        auto p = random_in_unit_disk();
+        return camera_center + (p[0] * defocus_disk_u) + (p[1] * defocus_disk_v);
     }
 
     color ray_color(const ray &r, int depth, const hittable &world) const {
