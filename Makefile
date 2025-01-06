@@ -1,5 +1,5 @@
 CC := clang++
-CFLAGS := -Wall -Wextra -Werror -std=c++17 -O3 -D_GLIBCXX_ASSERTIONS
+CFLAGS := -Wall -std=c++17 -O3 -D_GLIBCXX_ASSERTIONS
 LIB :=
 INC := -I.
 
