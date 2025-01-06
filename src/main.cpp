@@ -21,14 +21,17 @@ double hit_sphere(const point3 &center, double radius, const ray &r) {
     auto a = dot(r.direction(), r.direction());
 
     // -2d * (C - Q)
-    auto b = -2.0 * dot(r.direction(), oc);
+    auto b = /*-2.0 **/ dot(r.direction(), oc);
 
     // (C - Q) * (C - Q) - r^2
     auto c            = dot(oc, oc) - radius * radius;
-    auto discriminant = b * b - 4 * a * c;
+    auto discriminant = b * b - /*4 **/ a * c;
 
     // get the discriminant if some
-    return (discriminant < 0) ? -1.0 : (-b - std::sqrt(discriminant)) / (2.0 * a);
+    if (discriminant < 0) {
+        return -1.0;
+    }
+    return (b - std::sqrt(discriminant)) / (/*2.0 **/ a);
 }
 
 color ray_color(const ray &r) {
