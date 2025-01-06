@@ -3,6 +3,7 @@
 #include "color.h"
 #include "hittable.h"
 #include "interval.h"
+#include "material.h"
 #include "ray.h"
 #include "vec3.h"
 
@@ -11,6 +12,7 @@ public:
     double aspect_ratio = 16.0 / 9.0;
     int    image_width  = 1920;
     int    samples_pp   = 10;
+    int    max_depth    = 10;
 
     void render(const hittable &world) {
         init();
@@ -24,7 +26,7 @@ public:
                 color pixel_color(0, 0, 0);
                 for (int sample = 0; sample < samples_pp; sample++) {
                     ray r = get_ray(i, j);
-                    pixel_color += ray_color(r, world);
+                    pixel_color += ray_color(r, max_depth, world);
                 }
 
                 write_color(std::cout, pixel_sample_scale * pixel_color);
@@ -80,11 +82,17 @@ private:
         return vec3(random_double() - 0.5, random_double() - 0.5, 0);
     }
 
-    color ray_color(const ray &r, const hittable &world) const {
+    color ray_color(const ray &r, int depth, const hittable &world) const {
+        if (depth <= 0) return color(0, 0, 0);
+
         hit_record rec;
-        if (world.hit(r, interval(0, infinity), rec)) {
-            vec3 dir = random_on_hemisphere(rec.normal);
-            return 0.5 * ray_color(ray(rec.p, dir), world);
+        if (world.hit(r, interval(0.001, infinity), rec)) {
+            ray   scattered;
+            color attenuation;
+            if (rec.mat->scatter(r, rec, attenuation, scattered)) {
+                return attenuation * ray_color(scattered, depth - 1, world);
+            }
+            return color(0, 0, 0);
         }
 
         vec3 unit_dir = unit_vector(r.direction());

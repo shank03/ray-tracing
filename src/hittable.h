@@ -1,14 +1,19 @@
 #pragma once
 
+#include <memory>
+
 #include "interval.h"
 #include "ray.h"
 #include "vec3.h"
 
+class material;
+
 typedef struct hr {
-    point3 p;
-    vec3   normal;
-    double t;
-    bool   front_face;
+    point3                    p;
+    vec3                      normal;
+    std::shared_ptr<material> mat;
+    double                    t;
+    bool                      front_face;
 
     void set_face_normal(const ray &r, const vec3 &out_normal) {
         // Sets hit record for normal vector

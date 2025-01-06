@@ -1,12 +1,19 @@
 #pragma once
 
+#include <memory>
+
+#include "_util.h"
 #include "hittable.h"
-#include "vec3.h"
 #include "ray.h"
+#include "vec3.h"
 
 class sphere : public hittable {
 public:
-    sphere(const point3 &center, double radius) : center(center), radius(std::fmax(0, radius)) {}
+    sphere(const point3 &center, double radius) : center(center), radius(std::fmax(0, radius)) {
+        // TODO:
+    }
+
+    sphere(const point3 &center, double radius, std::shared_ptr<material> mat) : center(center), radius(std::fmax(0, radius)), mat(mat) {}
 
     bool hit(const ray &r, interval ray_t, hit_record &rec) const override {
         // Sphere on arbitary point (Cx, Cy, Cz) => (Cx - x)^2 + (Cy - y)^2 + (Cz - z)^2 = r^2;
@@ -51,11 +58,13 @@ public:
         rec.p           = r.at(rec.t);
         vec3 out_normal = (rec.p - center) / radius;
         rec.set_face_normal(r, out_normal);
+        rec.mat = mat;
 
         return true;
     }
 
 private:
-    point3 center;
-    double radius;
+    point3                    center;
+    double                    radius;
+    std::shared_ptr<material> mat;
 };
