@@ -1,5 +1,6 @@
 #pragma once
 
+#include "_util.h"
 #include "hittable.h"
 #include "vec3.h"
 
@@ -7,6 +8,7 @@ class camera {
 public:
     double aspect_ratio = 16.0 / 9.0;
     int    image_width  = 1920;
+    int    samples_pp   = 10;
 
     void render(const hittable &world) {
         init();
@@ -17,12 +19,13 @@ public:
         for (int j = 0; j < image_height; j++) {
             std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
             for (int i = 0; i < image_width; i++) {
-                auto pixel_center = pixel00_loc + (i * pixel_del_u) + (j * pixel_del_v);
-                auto ray_dir      = pixel_center - camera_center;
-                ray  r(camera_center, ray_dir);
+                color pixel_color(0, 0, 0);
+                for (int sample = 0; sample < samples_pp; sample++) {
+                    ray r = get_ray(i, j);
+                    pixel_color += ray_color(r, world);
+                }
 
-                color pixel = ray_color(r, world);
-                write_color(std::cout, pixel);
+                write_color(std::cout, pixel_sample_scale * pixel_color);
             }
         }
 
@@ -31,12 +34,15 @@ public:
 
 private:
     int    image_height;
+    double pixel_sample_scale;
     point3 camera_center, pixel00_loc;
     vec3   pixel_del_u, pixel_del_v;
 
     void init() {
         image_height = int(image_width / aspect_ratio);
         image_height = (image_height < 1) ? 1 : image_height;
+
+        pixel_sample_scale = 1.0 / samples_pp;
 
         // Camera
         auto focal_length = 1.0;
@@ -56,6 +62,20 @@ private:
 
         auto viewport_top_left = camera_center - vec3(0, 0, focal_length) - viewport_u / 2 - viewport_v / 2;
         pixel00_loc            = viewport_top_left + 0.5 * (pixel_del_u + pixel_del_v);
+    }
+
+    ray get_ray(int i, int j) const {
+        auto offset       = sample_square();
+        auto pixel_sample = pixel00_loc + ((i + offset.x()) * pixel_del_u) + ((j + offset.y()) * pixel_del_v);
+
+        auto origin = camera_center;
+        auto dir    = pixel_sample - origin;
+
+        return ray(origin, dir);
+    }
+
+    vec3 sample_square() const {
+        return vec3(random_double() - 0.5, random_double() - 0.5, 0);
     }
 
     color ray_color(const ray &r, const hittable &world) const {

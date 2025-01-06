@@ -2,7 +2,6 @@
 #include "hittable_list.h"
 #include "sphere.h"
 
-
 int main() {
     // World
     hittable_list world;
@@ -11,7 +10,8 @@ int main() {
 
     camera cam;
     cam.aspect_ratio = 16.0 / 9.0;
-    cam.image_width = 1920;
+    cam.image_width  = 1920;
+    cam.samples_pp   = 100;
 
     cam.render(world);
 
