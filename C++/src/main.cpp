@@ -50,8 +50,8 @@ int main() {
 
     cam.aspect_ratio = 16.0 / 9.0;
     cam.image_width  = 1200;
-    cam.samples_pp   = 256;
-    cam.max_depth    = 32;
+    cam.samples_pp   = 50;
+    cam.max_depth    = 10;
 
     cam.vfov      = 20;
     cam.near_clip = point3(13, 2, 3);

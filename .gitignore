@@ -4,3 +4,8 @@
 **/*.lock
 **/*.ppm
 **/*.idea
+**/*.DS_Store
+
+# Added by cargo
+
+/target
