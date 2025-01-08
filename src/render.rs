@@ -1,4 +1,10 @@
-use std::{f64::INFINITY, fs::File, io::Write};
+use std::{
+    f64::INFINITY,
+    fs::File,
+    io::Write,
+    sync::{mpsc, Arc},
+    thread,
+};
 
 use crate::{
     color::{self, Color},
@@ -78,29 +84,78 @@ impl Render {
         }
     }
 
-    pub fn render(&self, world: &impl Hittable) {
+    pub fn render(render: Render, world: impl Hittable + 'static) {
         let path = "image.ppm";
         let mut file = File::create(path).expect("Failed to create image file");
 
-        file.write(format!("P3\n{} {}\n255\n", self.image_width, self.image_height).as_bytes())
+        file.write(format!("P3\n{} {}\n255\n", render.image_width, render.image_height).as_bytes())
             .expect("Failed to write image header");
 
-        for j in 0..self.image_height {
-            print!("\rScanlines remaining: {} \r", self.image_height - j);
-            for i in 0..self.image_width {
-                let (i, j) = (i as f64, j as f64);
+        let mut count = 0usize;
+        let pixels_coords = (0..render.image_height)
+            .into_iter()
+            .fold(Vec::new(), |mut acc, j| {
+                (0..render.image_width).into_iter().for_each(|i| {
+                    acc.push((count, i as f64, j as f64));
+                    count += 1;
+                });
+                acc
+            });
 
-                let mut pixel_color = Color::empty();
-                for _sample in 0..self.samples_per_pixel {
-                    let r = self.get_ray(i, j);
-                    pixel_color += self.ray_color(r, self.max_depth, world);
+        let start = std::time::Instant::now();
+
+        let cores = thread::available_parallelism().unwrap().get();
+        let chunk_size = pixels_coords.len() / cores;
+
+        let mut pixels = vec![[0, 0, 0]; pixels_coords.len()];
+
+        let mut handles = Vec::new();
+        let (send_data, recv_data) = mpsc::channel::<(usize, [u8; 3])>();
+
+        let render = Arc::new(render);
+        let world = Arc::new(world);
+        let send_data = Arc::new(send_data);
+
+        let mut chunks = pixels_coords.chunks(chunk_size).enumerate();
+        while let Some((ix, chunk)) = chunks.next() {
+            let chunk = chunk.to_vec();
+
+            let render = render.clone();
+            let world = world.clone();
+            let send_data = send_data.clone();
+            handles.push(thread::spawn(move || {
+                println!("Started chunk: {ix} - {}", chunk.len());
+                for (idx, i, j) in chunk.into_iter() {
+                    let mut pixel_color = Color::empty();
+                    for _sample in 0..render.samples_per_pixel {
+                        let r = render.get_ray(i, j);
+                        pixel_color += render.ray_color(r, render.max_depth, world.as_ref());
+                    }
+
+                    let pixel = color::get_pixel(render.pixel_sample_scale * &pixel_color);
+
+                    send_data.send((idx, pixel)).unwrap();
                 }
 
-                let [r, g, b] = color::get_pixel(self.pixel_sample_scale * &pixel_color);
-                file.write(format!("{r} {g} {b}\n").as_bytes())
-                    .expect("Failed to write pixel to image");
-            }
+                println!("Chunk {ix} completed");
+            }));
         }
+
+        for h in handles.into_iter() {
+            h.join().unwrap();
+        }
+
+        drop(send_data);
+        while let Ok((idx, pixel)) = recv_data.recv() {
+            pixels[idx] = pixel;
+        }
+
+        println!("Elapsed: {:?}", start.elapsed());
+
+        pixels.into_iter().for_each(|[r, g, b]| {
+            file.write(format!("{r} {g} {b}\n").as_bytes())
+                .expect("Failed to write pixel to image file");
+        });
 
         println!("\rDone                   ");
     }
@@ -135,7 +190,7 @@ impl Render {
         &(&self.camera_center + &(x * &self.defocus_disk_u)) + &(y * &self.defocus_disk_v)
     }
 
-    fn ray_color(&self, r: Ray, depth: i32, world: &impl Hittable) -> Color {
+    fn ray_color(&self, r: Ray, depth: i32, world: &dyn Hittable) -> Color {
         if depth <= 0 {
             return Color::empty();
         }

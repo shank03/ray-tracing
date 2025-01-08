@@ -70,8 +70,8 @@ fn main() {
     let renderer = Render::new(
         16.0 / 9.0,
         1920,
-        52,
-        32,
+        64,
+        50,
         20.0,
         Point3::new([13.0, 2.0, 3.0]),
         Point3::empty(),
@@ -80,5 +80,5 @@ fn main() {
         10.0,
     );
 
-    renderer.render(&world);
+    Render::render(renderer, world);
 }
