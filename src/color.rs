@@ -10,9 +10,8 @@ fn linear_to_gamma(linear: f64) -> f64 {
 }
 
 pub fn get_pixel(color: Color) -> [u8; 3] {
-    let (r, g, b) = color.expand();
-
-    let (r, g, b) = (linear_to_gamma(r), linear_to_gamma(g), linear_to_gamma(b));
+    let [r, g, b] = color;
+    let [r, g, b] = [linear_to_gamma(r), linear_to_gamma(g), linear_to_gamma(b)];
 
     let range = 0.000..0.999;
 

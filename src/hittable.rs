@@ -3,7 +3,7 @@ use std::ops::Range;
 use crate::{
     material::Material,
     ray::Ray,
-    vec3::{Point3, Vec3},
+    vec3::{self, Point3, Vec3, VecOp},
 };
 
 #[derive(Clone)]
@@ -17,8 +17,8 @@ pub struct HitRecord {
 impl HitRecord {
     pub fn new() -> Self {
         Self {
-            p: Point3::empty(),
-            normal: Vec3::empty(),
+            p: vec3::empty(),
+            normal: vec3::empty(),
             t: 0.0,
             front_face: false,
         }
@@ -27,9 +27,9 @@ impl HitRecord {
     pub fn set_face_normal(&mut self, r: &Ray, out_normal: &Vec3) {
         self.front_face = r.direction().dot(out_normal) < 0.0;
         self.normal = if self.front_face {
-            Vec3::new([*out_normal.x(), *out_normal.y(), *out_normal.z()])
+            *out_normal
         } else {
-            -out_normal
+            out_normal.neg()
         };
     }
 }

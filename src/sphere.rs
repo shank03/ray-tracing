@@ -5,7 +5,7 @@ use crate::{
     interval::Interval,
     material::Material,
     ray::Ray,
-    vec3::Point3,
+    vec3::{Point3, VecOp},
 };
 
 pub struct Sphere {
@@ -26,7 +26,7 @@ impl Sphere {
 
 impl Hittable for Sphere {
     fn hit(&self, r: &Ray, ray_t: Range<f64>, rec: &mut HitRecord) -> Option<Material> {
-        let oc = &self.center - r.origin();
+        let oc = self.center.sub(r.origin());
 
         let a = r.direction().dot(r.direction());
         let b = r.direction().dot(&oc);
@@ -50,7 +50,7 @@ impl Hittable for Sphere {
         rec.t = root;
         rec.p = r.at(rec.t);
 
-        let normal = &(&rec.p - &self.center) / self.radius;
+        let normal = rec.p.sub(&self.center).div_f(self.radius);
         rec.set_face_normal(r, &normal);
 
         Some(self.mat.clone())

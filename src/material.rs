@@ -1,4 +1,10 @@
-use crate::{color::Color, hittable::HitRecord, ray::Ray, utils, vec3::Vec3};
+use crate::{
+    color::Color,
+    hittable::HitRecord,
+    ray::Ray,
+    utils,
+    vec3::{self, VecOp},
+};
 
 #[derive(Clone)]
 pub enum Material {
@@ -17,7 +23,7 @@ impl Material {
     ) -> bool {
         match self {
             Material::Lambertian(albedo) => {
-                let scatter_dir = &rec.normal + &Vec3::random_unit_vector();
+                let scatter_dir = rec.normal.add(&vec3::random_unit_vector());
 
                 *scattered = Ray::new(
                     &rec.p,
@@ -32,14 +38,16 @@ impl Material {
             }
             Material::Metal(albedo, fuzz) => {
                 let reflected = r_in.direction().reflect(&rec.normal);
-                let reflected = &reflected.unit() + &(fuzz * &Vec3::random_unit_vector());
+                let reflected = reflected
+                    .unit()
+                    .add(&vec3::random_unit_vector().mul_f(fuzz));
 
                 *scattered = Ray::new(&rec.p, &reflected);
                 *attenuation = albedo;
                 scattered.direction().dot(&rec.normal) > 0.0
             }
             Material::Dielectric(refraction_index) => {
-                *attenuation = Color::new([1.0, 1.0, 1.0]);
+                *attenuation = [1.0, 1.0, 1.0];
                 let ri = if rec.front_face {
                     1.0 / refraction_index
                 } else {
@@ -47,7 +55,7 @@ impl Material {
                 };
 
                 let unit_dir = r_in.direction().unit();
-                let cosine = (-&unit_dir).dot(&rec.normal).min(1.0);
+                let cosine = unit_dir.neg().dot(&rec.normal).min(1.0);
                 let sine = (1.0 - cosine * cosine).sqrt();
 
                 let cannot_refract = ri * sine > 1.0;
