@@ -21,8 +21,8 @@ fn main() {
     world.add(Sphere::new([0.0, -1000.0, 0.0], 1000.0, ground_material));
 
     let ref_point = [4.0, 0.2, 0.0];
-    for a in -12..12 {
-        for b in -12..12 {
+    for a in -8..8 {
+        for b in -8..8 {
             let (a, b) = (a as f64, b as f64);
 
             let choose_mat = utils::random_float();
@@ -66,7 +66,7 @@ fn main() {
         16.0 / 9.0,
         1920,
         64,
-        32,
+        16,
         32.0,
         [13.0, 2.0, 3.0],
         vec3::empty(),
@@ -75,5 +75,5 @@ fn main() {
         10.0,
     );
 
-    Render::render(renderer, world);
+    Render::render(&renderer, &world);
 }

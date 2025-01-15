@@ -1,11 +1,6 @@
-use std::{
-    collections::VecDeque,
-    f64::INFINITY,
-    fs::File,
-    io::Write,
-    sync::{mpsc, Arc, Mutex},
-    thread,
-};
+use std::{f64::INFINITY, fs::File, io::Write};
+
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
 use crate::{
     color::{self, Color},
@@ -88,7 +83,7 @@ impl Render {
         }
     }
 
-    pub fn render(render: Render, world: impl Hittable + 'static) {
+    pub fn render(render: &Render, world: &impl Hittable) {
         let path = "image.ppm";
         let mut file = File::create(path).expect("Failed to create image file");
 
@@ -96,90 +91,39 @@ impl Render {
             .expect("Failed to write image header");
 
         let mut count = 0usize;
-        let pixels_coords = (0..render.image_height)
-            .into_iter()
-            .fold(Vec::new(), |mut acc, j| {
-                (0..render.image_width).into_iter().for_each(|i| {
-                    acc.push((count, i as f64, j as f64));
-                    count += 1;
+        let mut pixels_coords =
+            (0..render.image_height)
+                .into_iter()
+                .fold(Vec::new(), |mut acc, j| {
+                    (0..render.image_width).into_iter().for_each(|i| {
+                        acc.push((count, i as f64, j as f64));
+                        count += 1;
+                    });
+                    acc
                 });
-                acc
-            });
 
         let start = std::time::Instant::now();
 
-        let cores = thread::available_parallelism().unwrap().get();
-        let chunk_size = u16::MAX as usize;
-
         let mut pixels = vec![[0, 0, 0]; pixels_coords.len()];
+        let pixels_ptr = Ptr(pixels.as_mut_ptr());
+        let coords_ptr = Ptr(pixels_coords.as_mut_ptr());
 
-        let mut handles = Vec::new();
-        let (send_data, recv_data) = mpsc::channel::<(usize, [u8; 3])>();
+        // since each pixel is independent,
+        // access them in parallel without resource managment restrictions
+        (0..pixels_coords.len())
+            .into_par_iter()
+            .for_each(move |i| unsafe {
+                let (idx, i, j) = *{ coords_ptr }.0.add(i);
 
-        let render = Arc::new(render);
-        let world = Arc::new(world);
-        let send_data = Arc::new(send_data);
-
-        let chunks = pixels_coords
-            .chunks(chunk_size)
-            .enumerate()
-            .map(|(i, c)| (i, c.to_vec()))
-            .collect::<Vec<_>>();
-        drop(pixels_coords);
-
-        let mut jobs: VecDeque<Box<dyn FnOnce() + Send + 'static>> = VecDeque::new();
-        for (ix, chunk) in chunks.into_iter() {
-            let render = render.clone();
-            let world = world.clone();
-            let send_data = send_data.clone();
-
-            jobs.push_back(Box::new(move || {
-                println!("Started chunk: {ix} - {:?}", thread::current().id());
-                for (idx, i, j) in chunk.into_iter() {
-                    let mut pixel_color = vec3::empty();
-                    for _sample in 0..render.samples_per_pixel {
-                        let r = render.get_ray(i, j);
-                        pixel_color.add_assign(render.ray_color(
-                            r,
-                            render.max_depth,
-                            world.as_ref(),
-                        ));
-                    }
-
-                    let pixel = color::get_pixel(pixel_color.mul_f(render.pixel_sample_scale));
-                    send_data.send((idx, pixel)).unwrap();
+                let mut pixel_color = vec3::empty();
+                for _sample in 0..render.samples_per_pixel {
+                    let r = render.get_ray(i, j);
+                    pixel_color.add_assign(render.ray_color(r, render.max_depth, world));
                 }
 
-                println!("Chunk {ix} completed");
-            }));
-        }
-
-        let jobs = Arc::new(Mutex::new(jobs));
-        for _ in 0..cores {
-            let jobs = jobs.clone();
-            handles.push(thread::spawn(move || loop {
-                let job = {
-                    let mut jobs = jobs.lock().unwrap();
-                    if jobs.is_empty() {
-                        break;
-                    }
-                    jobs.pop_front()
-                };
-
-                if let Some(job) = job {
-                    job();
-                }
-            }));
-        }
-
-        for h in handles.into_iter() {
-            h.join().unwrap();
-        }
-
-        drop(send_data);
-        while let Ok((idx, pixel)) = recv_data.recv() {
-            pixels[idx] = pixel;
-        }
+                *{ pixels_ptr }.0.add(idx) =
+                    color::get_pixel(pixel_color.mul_f(render.pixel_sample_scale));
+            });
 
         println!("Elapsed: {:?}", start.elapsed());
 
@@ -239,3 +183,8 @@ impl Render {
             .add(&[0.5, 0.7, 1.0].mul_f(a))
     }
 }
+
+#[derive(Copy, Clone)]
+struct Ptr<T>(*mut T);
+unsafe impl<T> Send for Ptr<T> {}
+unsafe impl<T> Sync for Ptr<T> {}
